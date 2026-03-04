@@ -82,7 +82,7 @@ const handleAnalyzeResumes = async () => {
   formData.append("resume", file);
 });
 
-    const response = await fetch("http://localhost:5000/analyze", {
+    const response = await fetch("https://resume-backend-k0qm.onrender.com/analyze", {
       method: "POST",
       body: formData,
     });
