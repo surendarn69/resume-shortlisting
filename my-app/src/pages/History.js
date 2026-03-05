@@ -49,7 +49,7 @@ const History = () => {
     };
 
     try {
-      const res = await fetch("http://localhost:5000/save-history", {
+      const res = await fetch("https://resume-backend-k0qm.onrender.com/save-history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

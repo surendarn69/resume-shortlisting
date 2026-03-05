@@ -24,7 +24,7 @@ function Signup() {
     if (!email) return alert("Enter your email first");
 
     try {
-      const res = await fetch("http://localhost:5000/send-otp", {
+      const res = await fetch("https://resume-backend-k0qm.onrender.com/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -44,7 +44,7 @@ function Signup() {
     return alert("All fields are required"); // Only check email, password, otp
   }
 
-  const res = await fetch("http://localhost:5000/signup", {
+  const res = await fetch("https://resume-backend-k0qm.onrender.com/signup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, otp }),
