@@ -9,8 +9,9 @@
     "mammoth": "^1.11.0",
     "mongoose": "^8.21.0",
     "multer": "^2.0.2",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "^7.0.13",
     "pdf-parse": "^1.1.1",
+    "resend": "^6.4.2",
     "tesseract.js": "^7.0.0"
   }
 }

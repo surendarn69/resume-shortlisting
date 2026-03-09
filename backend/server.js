@@ -3,8 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-const nodemailer = require("nodemailer");
 const multer = require("multer");
+const { Resend } = require("resend");
 
 const upload = multer({ dest: "uploads/" });
 
@@ -14,11 +14,12 @@ const { spawn } = require("child_process");
 
 const extractText = require("./utils/extractText");
 
-
-
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ================= Resend Email =================
+const resend = new Resend("re_DGJSMp95_2qgnWHWRJRABtC4ouLYmYgaU");
 
 // ================= MongoDB =================
 mongoose
@@ -34,7 +35,6 @@ const userSchema = new mongoose.Schema({
   password: String,
 });
 const User = mongoose.model("User", userSchema);
-
 
 // ================= Analysis History Schema =================
 const analysisHistorySchema = new mongoose.Schema({
@@ -55,17 +55,9 @@ const AnalysisHistory = mongoose.model(
 // ================= OTP Store =================
 const otpStore = {};
 
-// ================= Nodemailer =================
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: "nsurendar483@gmail.com",
-    pass: "xpidzhqmqsrolmuq",
-  },
-});
-
 // ================= SEND OTP =================
 app.post("/send-otp", async (req, res) => {
+
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email is required" });
 
@@ -73,18 +65,25 @@ app.post("/send-otp", async (req, res) => {
   otpStore[email] = otp;
 
   try {
-    await transporter.sendMail({
-      from: "Resume AI <nsurendar483@gmail.com>",
+
+    await resend.emails.send({
+      from: "onboarding@resend.dev",
       to: email,
-      subject: "Your OTP Code",
-      text: `Your OTP code is: ${otp}`,
+      subject: "Resume AI OTP Verification",
+      html: `<h2>Your OTP code is: ${otp}</h2>`
     });
 
-    console.log(`OTP for ${email}: ${otp}`);
+    console.log("OTP sent:", otp);
+
     res.json({ message: "OTP sent successfully" });
+
   } catch (err) {
+
+    console.error("EMAIL ERROR:", err);
+
     res.status(500).json({ message: "Failed to send OTP" });
   }
+
 });
 
 // ================= SIGNUP =================
@@ -102,21 +101,26 @@ app.post("/signup", async (req, res) => {
   await new User({ email, password: hashedPassword }).save();
 
   delete otpStore[email];
+
   res.json({ message: "Account created successfully" });
 });
 
 // ================= LOGIN =================
 app.post("/login", async (req, res) => {
+
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
+
   if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
   const isMatch = await bcrypt.compare(password, user.password);
+
   if (!isMatch)
     return res.status(400).json({ message: "Invalid credentials" });
 
   res.json({ message: "Login successful" });
+
 });
 
 
@@ -137,58 +141,52 @@ app.post("/analyze", upload.array("resume", 20), async (req, res) => {
       const resumeText = await extractText(file.path);
 
       const payload = {
-  file_name: file.originalname,
-  skills: req.body.skills
-    ? req.body.skills.split(",").map(s => s.trim().toLowerCase())
-    : [],
-  resume_text: resumeText,
-  job_description: req.body.jobDescription || "",
-  cutoff: req.body.cutOffMark ? Number(req.body.cutOffMark) : 0,
-  cgpa: req.body.cgpa ? Number(req.body.cgpa) : 0,
-tenth: req.body.tenth ? Number(req.body.tenth) : 0,
-twelfth: req.body.twelfth ? Number(req.body.twelfth) : 0
-};
+        file_name: file.originalname,
+        skills: req.body.skills
+          ? req.body.skills.split(",").map(s => s.trim().toLowerCase())
+          : [],
+        resume_text: resumeText,
+        job_description: req.body.jobDescription || "",
+        cutoff: req.body.cutOffMark ? Number(req.body.cutOffMark) : 0,
+        cgpa: req.body.cgpa ? Number(req.body.cgpa) : 0,
+        tenth: req.body.tenth ? Number(req.body.tenth) : 0,
+        twelfth: req.body.twelfth ? Number(req.body.twelfth) : 0
+      };
 
-      const pythonExe = path.join(__dirname, "../venv/Scripts/python.exe");
       const scriptPath = path.join(__dirname, "python/resume_analyzer.py");
 
       const output = await new Promise((resolve, reject) => {
 
-  const py = spawn(pythonExe, [scriptPath]);
+        const py = spawn("python3", [scriptPath]);
 
-  let result = "";
-  let error = "";
+        let result = "";
+        let error = "";
 
-  py.stdout.on("data", (data) => {
-    result += data.toString();
-  });
+        py.stdout.on("data", (data) => {
+          result += data.toString();
+        });
 
-  py.stderr.on("data", (data) => {
-    error += data.toString();
-  });
+        py.stderr.on("data", (data) => {
+          error += data.toString();
+        });
 
-  py.on("close", (code) => {
+        py.on("close", () => {
 
-    fs.unlinkSync(file.path); // delete uploaded file
+          fs.unlinkSync(file.path);
 
-    if (error) {
-      console.error("PYTHON ERROR:", error);
-      return reject(error);
-    }
+          if (error) {
+            console.error("PYTHON ERROR:", error);
+            return reject(error);
+          }
 
-    try {
-      resolve(result);
-    } catch (e) {
-      reject("Invalid JSON from Python");
-    }
-  });
+          resolve(result);
 
-  // ⭐ SEND DATA TO PYTHON
-  py.stdin.write(JSON.stringify(payload));
-  py.stdin.end();
+        });
 
-});
+        py.stdin.write(JSON.stringify(payload));
+        py.stdin.end();
 
+      });
 
       results.push(JSON.parse(output));
     }
@@ -201,11 +199,11 @@ twelfth: req.body.twelfth ? Number(req.body.twelfth) : 0
   }
 });
 
-
-
 // ================= SAVE ANALYSIS HISTORY =================
 app.post("/save-history", async (req, res) => {
+
   try {
+
     const {
       email,
       jobTitle,
@@ -233,15 +231,20 @@ app.post("/save-history", async (req, res) => {
     await record.save();
 
     res.json({ message: "History saved successfully" });
+
   } catch (err) {
+
     console.error(err);
+
     res.status(500).json({ message: "Failed to save history" });
+
   }
+
 });
 
-
 // ================= SERVER =================
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}`)
 );
