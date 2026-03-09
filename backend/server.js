@@ -68,7 +68,7 @@ app.post("/send-otp", async (req, res) => {
 
     await resend.emails.send({
       from: "onboarding@resend.dev",
-      to: email,
+      to: "lordssura69@gmail.com",
       subject: "Resume AI OTP Verification",
       html: `<h2>Your OTP code is: ${otp}</h2>`
     });
