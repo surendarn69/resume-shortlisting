@@ -1,4 +1,3 @@
-// server.js
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -18,25 +17,28 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ================= Resend Email =================
-const resend = new Resend("re_DGJSMp95_2qgnWHWRJRABtC4ouLYmYgaU");
 
-// ================= MongoDB =================
+// ================= RESEND EMAIL =================
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+
+// ================= MONGODB =================
 mongoose
-  .connect(
-    "mongodb+srv://nsurendar483_db_user:yR9UpymdANRM1oAL@cluster0.pveeswg.mongodb.net/mydatabase?retryWrites=true&w=majority"
-  )
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Atlas Connected"))
   .catch((err) => console.error("MongoDB Connection Error:", err));
 
-// ================= User Schema =================
+
+// ================= USER SCHEMA =================
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
 });
+
 const User = mongoose.model("User", userSchema);
 
-// ================= Analysis History Schema =================
+
+// ================= ANALYSIS HISTORY =================
 const analysisHistorySchema = new mongoose.Schema({
   email: { type: String, required: true },
   jobTitle: String,
@@ -47,19 +49,21 @@ const analysisHistorySchema = new mongoose.Schema({
   date: String
 });
 
-const AnalysisHistory = mongoose.model(
-  "AnalysisHistory",
-  analysisHistorySchema
-);
+const AnalysisHistory = mongoose.model("AnalysisHistory", analysisHistorySchema);
 
-// ================= OTP Store =================
+
+// ================= OTP STORE =================
 const otpStore = {};
+
 
 // ================= SEND OTP =================
 app.post("/send-otp", async (req, res) => {
 
   const { email } = req.body;
-  if (!email) return res.status(400).json({ message: "Email is required" });
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore[email] = otp;
@@ -67,13 +71,11 @@ app.post("/send-otp", async (req, res) => {
   try {
 
     const response = await resend.emails.send({
-  from: "onboarding@resend.dev",
-  to: email,
-  subject: "Resume AI OTP Verification",
-  html: `<h2>Your OTP code is: ${otp}</h2>`
-});
-
-console.log("Resend response:", response);
+      from: "Resume AI <onboarding@resend.dev>",
+      to: email,
+      subject: "Resume AI OTP Verification",
+      html: `<h2>Your OTP code is: ${otp}</h2>`
+    });
 
     console.log("OTP sent:", otp);
 
@@ -84,28 +86,40 @@ console.log("Resend response:", response);
     console.error("EMAIL ERROR:", err);
 
     res.status(500).json({ message: "Failed to send OTP" });
+
   }
 
 });
 
+
 // ================= SIGNUP =================
 app.post("/signup", async (req, res) => {
+
   const { email, password, otp } = req.body;
 
-  if (otpStore[email] !== otp)
+  if (otpStore[email] !== otp) {
     return res.status(400).json({ message: "Invalid OTP" });
+  }
 
   const existingUser = await User.findOne({ email });
-  if (existingUser)
+
+  if (existingUser) {
     return res.status(400).json({ message: "Email already registered" });
+  }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  await new User({ email, password: hashedPassword }).save();
+
+  await new User({
+    email,
+    password: hashedPassword
+  }).save();
 
   delete otpStore[email];
 
   res.json({ message: "Account created successfully" });
+
 });
+
 
 // ================= LOGIN =================
 app.post("/login", async (req, res) => {
@@ -114,22 +128,24 @@ app.post("/login", async (req, res) => {
 
   const user = await User.findOne({ email });
 
-  if (!user) return res.status(400).json({ message: "Invalid credentials" });
+  if (!user) {
+    return res.status(400).json({ message: "Invalid credentials" });
+  }
 
   const isMatch = await bcrypt.compare(password, user.password);
 
-  if (!isMatch)
+  if (!isMatch) {
     return res.status(400).json({ message: "Invalid credentials" });
+  }
 
   res.json({ message: "Login successful" });
 
 });
 
 
-// =================================================================
-// ================= RESUME ANALYSIS SECTION ========================
-// =================================================================
+// ================= RESUME ANALYSIS =================
 app.post("/analyze", upload.array("resume", 20), async (req, res) => {
+
   try {
 
     if (!req.files || req.files.length === 0) {
@@ -191,17 +207,23 @@ app.post("/analyze", upload.array("resume", 20), async (req, res) => {
       });
 
       results.push(JSON.parse(output));
+
     }
 
     res.json(results);
 
   } catch (err) {
+
     console.error(err);
+
     res.status(500).json({ error: "Multi resume analysis failed" });
+
   }
+
 });
 
-// ================= SAVE ANALYSIS HISTORY =================
+
+// ================= SAVE HISTORY =================
 app.post("/save-history", async (req, res) => {
 
   try {
@@ -215,10 +237,6 @@ app.post("/save-history", async (req, res) => {
       matchPercentage,
       date
     } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
 
     const record = new AnalysisHistory({
       email,
@@ -244,9 +262,10 @@ app.post("/save-history", async (req, res) => {
 
 });
 
+
 // ================= SERVER =================
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
