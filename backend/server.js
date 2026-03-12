@@ -1,12 +1,11 @@
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const multer = require("multer");
-const { Resend } = require("resend");
-
-const upload = multer({ dest: "uploads/" });
+const nodemailer = require("nodemailer");
 
 const path = require("path");
 const fs = require("fs");
@@ -15,15 +14,26 @@ const { spawn } = require("child_process");
 const extractText = require("./utils/extractText");
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
+const upload = multer({ dest: "uploads/" });
 
-// ================= RESEND EMAIL =================
-const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ================= GMAIL SMTP =================
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
 
 // ================= MONGODB =================
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Atlas Connected"))
@@ -31,6 +41,7 @@ mongoose
 
 
 // ================= USER SCHEMA =================
+
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
@@ -40,6 +51,7 @@ const User = mongoose.model("User", userSchema);
 
 
 // ================= ANALYSIS HISTORY =================
+
 const analysisHistorySchema = new mongoose.Schema({
   email: { type: String, required: true },
   jobTitle: String,
@@ -54,35 +66,41 @@ const AnalysisHistory = mongoose.model("AnalysisHistory", analysisHistorySchema)
 
 
 // ================= OTP STORE =================
+
 const otpStore = {};
 
 
 // ================= SEND OTP =================
+
 app.post("/send-otp", async (req, res) => {
 
   const { email } = req.body;
 
+  if (!email) {
+    return res.status(400).json({ message: "Email required" });
+  }
+
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  otpStore[email] = otp;
 
   console.log("EMAIL:", email);
   console.log("OTP:", otp);
 
   try {
 
-    const response = await resend.emails.send({
-      from: "Resume AI <onboarding@resend.dev>",
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
       to: email,
       subject: "Resume AI OTP Verification",
       html: `<h2>Your OTP code is: ${otp}</h2>`
     });
 
-    console.log("Resend response:", response);
-
     res.json({ message: "OTP sent successfully" });
 
   } catch (err) {
 
-    console.log("EMAIL ERROR:", err);
+    console.error("EMAIL ERROR:", err);
 
     res.status(500).json({ message: "Failed to send OTP" });
 
@@ -90,7 +108,9 @@ app.post("/send-otp", async (req, res) => {
 
 });
 
+
 // ================= SIGNUP =================
+
 app.post("/signup", async (req, res) => {
 
   const { email, password, otp } = req.body;
@@ -120,6 +140,7 @@ app.post("/signup", async (req, res) => {
 
 
 // ================= LOGIN =================
+
 app.post("/login", async (req, res) => {
 
   const { email, password } = req.body;
@@ -142,6 +163,7 @@ app.post("/login", async (req, res) => {
 
 
 // ================= RESUME ANALYSIS =================
+
 app.post("/analyze", upload.array("resume", 20), async (req, res) => {
 
   try {
@@ -222,6 +244,7 @@ app.post("/analyze", upload.array("resume", 20), async (req, res) => {
 
 
 // ================= SAVE HISTORY =================
+
 app.post("/save-history", async (req, res) => {
 
   try {
@@ -262,6 +285,7 @@ app.post("/save-history", async (req, res) => {
 
 
 // ================= SERVER =================
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
