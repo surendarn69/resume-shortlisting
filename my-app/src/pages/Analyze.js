@@ -82,7 +82,7 @@ const handleAnalyzeResumes = async () => {
   formData.append("resume", file);
 });
 
-    const response = await fetch("https://resume-backend-k0qm.onrender.com/analyze", {
+    const response = await fetch("https://resume-shortlisting-production.up.railway.app/analyze", {
       method: "POST",
       body: formData,
     });
