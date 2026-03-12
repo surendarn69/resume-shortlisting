@@ -104,14 +104,11 @@ app.post("/send-otp", async (req, res) => {
 
     console.error("EMAIL ERROR:", error);
 
-    res.status(500).json({
-      message: "OTP sending failed"
-    });
+    res.status(500).json({ message: "OTP sending failed" });
 
   }
 
 });
-
 // ================= SIGNUP =================
 
 app.post("/signup", async (req, res) => {
