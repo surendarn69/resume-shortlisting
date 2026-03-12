@@ -82,6 +82,7 @@ app.post("/send-otp", async (req, res) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
+  // store OTP
   otpStore[email] = otp;
 
   console.log("EMAIL:", email);
@@ -98,16 +99,17 @@ app.post("/send-otp", async (req, res) => {
 
     res.json({ message: "OTP sent successfully" });
 
-  } catch (err) {
+  } catch (error) {
 
-    console.error("EMAIL ERROR:", err);
+    console.error("EMAIL ERROR:", error);
 
-    res.status(500).json({ message: "Failed to send OTP" });
+    res.status(500).json({
+      message: "OTP sending failed"
+    });
 
   }
 
 });
-
 
 // ================= SIGNUP =================
 
