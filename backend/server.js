@@ -18,6 +18,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const { Resend } = require("resend");
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 const upload = multer({ dest: "uploads/" });
 
 
@@ -73,7 +77,6 @@ const otpStore = {};
 
 
 // ================= SEND OTP =================
-
 app.post("/send-otp", async (req, res) => {
 
   const { email } = req.body;
@@ -91,8 +94,8 @@ app.post("/send-otp", async (req, res) => {
 
   try {
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    await resend.emails.send({
+      from: "onboarding@resend.dev",
       to: email,
       subject: "Resume AI OTP Verification",
       html: `<h2>Your OTP code is: ${otp}</h2>`
@@ -100,15 +103,16 @@ app.post("/send-otp", async (req, res) => {
 
     res.json({ message: "OTP sent successfully" });
 
-  } catch (error) {
+  } catch (err) {
 
-    console.error("EMAIL ERROR:", error);
+    console.error("EMAIL ERROR:", err);
 
     res.status(500).json({ message: "OTP sending failed" });
 
   }
 
 });
+
 // ================= SIGNUP =================
 
 app.post("/signup", async (req, res) => {
